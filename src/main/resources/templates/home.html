@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+<!-- JQury from Google CDN -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<body>
+<div>
+    <h1>환율 계산</h1>
+    <form name="rateForm" id="rateForm" action="">
+        <div>
+            <label>송금국가: 미국(USD)</label>
+        </div>
+        <div>
+            <label>수취국가</label>
+            <select id="whichCountry" onchange="getRateByCountry(this.value)">
+                <option value="">국가를 선택하세요</option>
+                <option th:value="KRW">한국(KRW)</option>
+                <option th:value="JPY">일본(JPY)</option>
+                <option th:value="PHP">필리핀(PHP)</option>
+            </select>
+        </div>
+        <div>
+            <label>환율 : <span id="todayRate"></span></label>
+            <input type="hidden" id="hidRate" th:value="0"/>
+        </div>
+        <div>
+            <label>송금액 :</label>
+            <input type="text" id="howMuch" name="howMuch">
+        </div>
+    </form>
+    <button onclick="calRate();">Submit</button>
+    <div>
+        <span id="showResults"></span>
+    </div>
+</div>
+</body>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        getRates();
+    });
+
+    $("#howMuch").keyup(function onEvent(event){
+        if(event.keyCode === 13){
+            calRate();
+        }
+    });
+
+    let rates = {}; //초기 화면 로드 시에 환율 담아둘 전역 변수
+
+    function getRates() {
+        let url = '/api/getRate'
+        $.ajax({
+            type: 'GET',
+            url: url,
+            dataType: 'json',
+            success: function (data) {
+                rates = data;
+            }, error: function (e) {
+                console.log(e);
+                alert('환율조회에 실패했습니다. 다시 시도 해주세요.');
+            }
+        });
+    }
+
+    function numberWithCommas(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function getRateByCountry(country){
+        if(country){
+            let text = ' ' + country + '/USD';
+            document.getElementById('todayRate').innerText = numberWithCommas(rates[country]) + text ;
+            document.getElementById('hidRate').value = rates[country];
+        }else{
+            document.getElementById('todayRate').innerText = '';
+            document.getElementById('hidRate').value = 0;
+        }
+    }
+
+    function calRate(){
+        let url = '/api/calRate'
+
+        const amount = $('#howMuch').val();
+        const rate =  $('#hidRate').val();
+        const country = $('#whichCountry option:selected').val();
+
+        let isRate = document.getElementById('todayRate').innerText
+        if(!isRate){
+            alert('수취국가를 선택해주세요');
+            return false;
+        }
+        if(!amount){
+            alert('송금액을 입력해주세요.');
+            return false;
+        }
+
+        const sendData = {'amount':amount, 'rate':rate, 'country':country};
+
+        $.ajax({
+            type: 'POST',
+            url: url,
+            dataType: 'json',
+            data: sendData,
+            success: function (data) {
+                let status = data.status;
+                if(status === 400){
+                    let message = data.message;
+                    alert(message);
+                    return false;
+                }else if(status === 200){
+                    let message = data.message;
+                    $("#showResults").text(message);
+                }
+            }, error: function (e) {
+                console.log(e);
+                alert('송금계산에 실패했습니다. 다시 시도 해주세요.');
+            }
+        });
+    }
+</script>
+</html>
